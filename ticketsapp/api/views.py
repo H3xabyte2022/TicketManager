@@ -5,7 +5,9 @@ from ..models import Ticket, Image
 from .serializers import TicketSerializer, ImageSerializer
 from ..tasks import upload_image_to_cloudinary
 from django.core.exceptions import PermissionDenied
+from rest_framework import mixins
 
+#Added mixins to ensure only permitted operations
 
 
 class TicketCreateView(generics.CreateAPIView):
@@ -15,9 +17,11 @@ class TicketCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
-        
-        
-        
+
+
+
+
+
 class ImageUploadView(generics.CreateAPIView):
     queryset = Image.objects.all()
     serializer_class = ImageSerializer
@@ -39,10 +43,11 @@ class ImageUploadView(generics.CreateAPIView):
 
         headers = self.get_success_headers(serializer.data)
         return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
-    
-    
-    
-class TicketListView(generics.ListAPIView):
+
+
+
+
+class TicketListView(mixins.ListModelMixin, generics.GenericAPIView):
     serializer_class = TicketSerializer
     permission_classes = [IsAuthenticated]
 
@@ -59,9 +64,13 @@ class TicketListView(generics.ListAPIView):
         
         return queryset
 
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
 
 
-class TicketDetailView(generics.RetrieveAPIView):
+
+
+class TicketDetailView(mixins.RetrieveModelMixin, generics.GenericAPIView):
     queryset = Ticket.objects.all()
     serializer_class = TicketSerializer
     permission_classes = [IsAuthenticated]
@@ -70,4 +79,7 @@ class TicketDetailView(generics.RetrieveAPIView):
         ticket = super().get_object()
         if ticket.user != self.request.user:
             raise PermissionDenied('You do not have permission to view this ticket')
-        return ticket    
+        return ticket
+
+    def get(self, request, *args, **kwargs):
+        return self.retrieve(request, *args, **kwargs)

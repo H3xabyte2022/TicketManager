@@ -6,6 +6,7 @@ from .serializers import TicketSerializer, ImageSerializer
 from ..tasks import upload_image_to_cloudinary
 from django.core.exceptions import PermissionDenied
 from rest_framework import mixins
+from datetime import datetime
 
 #Added mixins to ensure only permitted operations
 
@@ -15,10 +16,19 @@ class TicketCreateView(generics.CreateAPIView):
     serializer_class = TicketSerializer
     permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
-
-
+    def post(self, request, *args, **kwargs):
+        # Obtener el usuario autenticado del token
+        user = request.user
+        
+        # Asignar el usuario al ticket durante la creación
+        data = request.data.copy()
+        data['user'] = user.id
+        
+        serializer = TicketSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 
@@ -57,17 +67,21 @@ class TicketListView(mixins.ListModelMixin, generics.GenericAPIView):
         start_date = self.request.query_params.get('start_date')
         end_date = self.request.query_params.get('end_date')
         
+        print(f"Status: {status}, Start Date: {start_date}, End Date: {end_date}")
+
         if status:
             queryset = queryset.filter(status=status)
         if start_date and end_date:
-            queryset = queryset.filter(created_at__range=[start_date, end_date])
+            # Convert string dates to date objects
+            start_date = datetime.strptime(start_date, '%Y-%m-%d').date()
+            end_date = datetime.strptime(end_date, '%Y-%m-%d').date()
+            queryset = queryset.filter(created_at__date__range=[start_date, end_date])
         
+        print("Filtered Queryset:", queryset)
         return queryset
 
     def get(self, request, *args, **kwargs):
         return self.list(request, *args, **kwargs)
-
-
 
 
 class TicketDetailView(mixins.RetrieveModelMixin, generics.GenericAPIView):
